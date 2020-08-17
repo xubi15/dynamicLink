@@ -1,5 +1,6 @@
 package com.zubi.dynamiclink.activity
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -17,7 +18,7 @@ import com.zubi.dynamiclink.util.RecyclerClick
 import kotlinx.android.synthetic.main.activity_main.*
 
 
-class MainActivity : AppCompatActivity() {
+class Draft : AppCompatActivity() {
 
     private lateinit var campaignAdapter: CampaignAdapter
     private lateinit var viewManager: RecyclerView.LayoutManager
@@ -26,7 +27,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        initDynamicLink()
+        //initDynamicLink()
 
         viewManager = LinearLayoutManager(this)
         campaignList = mutableListOf()
@@ -41,15 +42,16 @@ class MainActivity : AppCompatActivity() {
         )
         campaignList.add(
             CampaignData(
-                "https://r10.page.link/viber",
+                "https://play.google.com/store/apps/details?id=com.viber.voip&hl=en&link=viber://forward?text%3Dfoo",
                 "Viber",
                 "This is the description for Viber campaign",
                 "https://cnet1.cbsistatic.com/img/2014/04/24/cd83132a-a52f-49ad-a9f7-0f8b7514960a/icon.png"
             )
         )
+        //campaignList.add(CampaignData("https://play.google.com/store/apps/details?id=com.viber.voip&hl=en&link=https%3A%2F%2Fline.me%2FR%2Fnv%2FrecommendOA%2F%40linedevelopers", "Line", "This is the description for Line campaign", "https://pht.qoo-static.com/74iMObG1vsR3Kfm82RjERFhf99QFMNIY211oMvN636_gULghbRBMjpVFTjOK36oxCbs=w512"))
         campaignList.add(
             CampaignData(
-                "https://r10.page.link/line",
+                "https://play.google.com/store/apps/details?id=com.viber.voip&hl=en&link=line%3A%2F%2F",
                 "Line",
                 "This is the description for Line campaign",
                 "https://pht.qoo-static.com/74iMObG1vsR3Kfm82RjERFhf99QFMNIY211oMvN636_gULghbRBMjpVFTjOK36oxCbs=w512"
@@ -69,11 +71,21 @@ class MainActivity : AppCompatActivity() {
                 object : ClickListener {
 
                     override fun onClick(view: View?, position: Int) {
-                        val browserIntent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse(campaignList[position].redirectUrl)
-                        )
-                        startActivity(browserIntent)
+                        /*val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(campaignList[position].redirectUrl))
+                        startActivity(browserIntent)*/
+                        var deepLink: String = campaignList[position].redirectUrl
+                        var link = Uri.parse(deepLink).getQueryParameter("link")
+
+                        if (deepLink.toString().startsWith("https://play.google.com/store/apps")
+                            && link.toString().isNotBlank()
+                        ) {
+                            try {
+                                openRakutenCardApp(link.toString())
+                            } catch (ex: ActivityNotFoundException) {
+                                var intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink))
+                                startActivity(intent)
+                            }
+                        }
                     }
 
                     override fun onLongClick(view: View?, position: Int) {}
@@ -90,13 +102,21 @@ class MainActivity : AppCompatActivity() {
                 // Get deep link from result (may be null if no link is found)
                 var deepLink: Uri? = null
                 var packageId: String = ""
+                var link: String = ""
                 if (pendingDynamicLinkData != null) {
                     deepLink = pendingDynamicLinkData.link
                     packageId = deepLink?.getQueryParameter("id").toString()
+                    link = deepLink?.getQueryParameter("link").toString()
+
                 }
-                if (packageId != "") {
+
+                if (deepLink.toString()
+                        .startsWith("https://play.google.com/store/apps") && link.isNotBlank()
+                ) {
+
                     val packageName = packageId
                     var intent = packageManager.getLaunchIntentForPackage(packageName)
+
                     if (intent == null) {
                         intent = Intent(
                             Intent.ACTION_VIEW,
@@ -107,5 +127,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             .addOnFailureListener(this) { e -> Log.w("~ ", "getDynamicLink:onFailure", e) }
+    }
+
+    /**
+     * Opens Rakuten Card App by deeplink
+     */
+    @Throws(ActivityNotFoundException::class)
+    private fun openRakutenCardApp(cardURI: String) {
+        // Define Intent
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(cardURI));
+        // Start Activity
+        startActivity(intent);
     }
 }
